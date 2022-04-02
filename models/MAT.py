@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from models.xception import xception
 from models.efficientnet import EfficientNet
-import kornia
+# import kornia
 import torchvision.models as torchm
 from utils import cont_grad
 class AttentionMap(nn.Module):
