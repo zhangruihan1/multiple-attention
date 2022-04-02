@@ -241,10 +241,10 @@ class MAT(nn.Module):
             self.net.load_state_dict(keys,strict=False)
         self.attentions = AttentionMap(layers[self.attention_layer].shape[1], self.M)
         self.atp=AttentionPooling()
-        self.texture_enhance=Texture_Enhance_v2(num_features,M)
-        self.num_features=self.texture_enhance.output_features
-        self.num_features_d=self.texture_enhance.output_features_d
-        self.projection_local=nn.Sequential(nn.Linear(M*self.num_features,mid_dims),nn.Hardswish(),nn.Linear(mid_dims,mid_dims))
+#         self.texture_enhance=Texture_Enhance_v2(num_features,M)
+#         self.num_features=self.texture_enhance.output_features
+#         self.num_features_d=self.texture_enhance.output_features_d
+        self.projection_local=nn.Sequential(nn.Linear(M*num_features,mid_dims),nn.Hardswish(),nn.Linear(mid_dims,mid_dims))
         self.project_final=nn.Linear(layers['final'].shape[1],mid_dims)
         self.ensemble_classifier_fc=nn.Sequential(nn.Linear(mid_dims*2,mid_dims),nn.Hardswish(),nn.Linear(mid_dims,num_classes))
         self.auxiliary_loss=Auxiliary_Loss_v2(M,self.num_features_d,num_classes,alpha,margin,inner_margin)
@@ -252,43 +252,43 @@ class MAT(nn.Module):
         self.dropout_final=nn.Dropout(drop_final_rate,inplace=True)
         #self.center_loss=Center_Loss(self.num_features*M,num_classes)
 
-    def train_batch(self,x,y,jump_aux=False,drop_final=False):
-        layers = self.net(x)
-        if self.feature_layer=='logits':
-            logits=layers['logits']
-            loss=F.cross_entropy(logits,y)
-            return dict(loss=loss,logits=logits)
-        feature_maps = layers[self.feature_layer]
-        raw_attentions = layers[self.attention_layer]
-        attention_maps_=self.attentions(raw_attentions)
-        dropout_mask=self.dropout(torch.ones([attention_maps_.shape[0],self.M,1],device=x.device))
-        attention_maps=attention_maps_*torch.unsqueeze(dropout_mask,-1)
-        feature_maps,feature_maps_d=self.texture_enhance(feature_maps,attention_maps_)
-        feature_maps_d=feature_maps_d-feature_maps_d.mean(dim=[2,3],keepdim=True)
-        feature_maps_d=feature_maps_d/(torch.std(feature_maps_d,dim=[2,3],keepdim=True)+1e-8)
-        feature_matrix_=self.atp(feature_maps,attention_maps_)
-        feature_matrix=feature_matrix_*dropout_mask
+#     def train_batch(self,x,y,jump_aux=False,drop_final=False):
+#         layers = self.net(x)
+#         if self.feature_layer=='logits':
+#             logits=layers['logits']
+#             loss=F.cross_entropy(logits,y)
+#             return dict(loss=loss,logits=logits)
+#         feature_maps = layers[self.feature_layer]
+#         raw_attentions = layers[self.attention_layer]
+#         attention_maps_=self.attentions(raw_attentions)
+#         dropout_mask=self.dropout(torch.ones([attention_maps_.shape[0],self.M,1],device=x.device))
+#         attention_maps=attention_maps_*torch.unsqueeze(dropout_mask,-1)
+#         feature_maps,feature_maps_d=self.texture_enhance(feature_maps,attention_maps_)
+#         feature_maps_d=feature_maps_d-feature_maps_d.mean(dim=[2,3],keepdim=True)
+#         feature_maps_d=feature_maps_d/(torch.std(feature_maps_d,dim=[2,3],keepdim=True)+1e-8)
+#         feature_matrix_=self.atp(feature_maps,attention_maps_)
+#         feature_matrix=feature_matrix_*dropout_mask
 
-        B,M,N = feature_matrix.size()
-        if not jump_aux:
-            aux_loss,feature_matrix_d=self.auxiliary_loss(feature_maps_d,attention_maps_,y)
-        else:
-            feature_matrix_d=self.atp(feature_maps_d,attention_maps_)
-            aux_loss=0
-        feature_matrix=feature_matrix.view(B,-1)
-        feature_matrix=F.hardswish(self.projection_local(feature_matrix))
-        final=layers['final']
-        attention_maps=attention_maps.sum(dim=1,keepdim=True)
-        final=self.atp(final,attention_maps,norm=1).squeeze(1)
-        final=self.dropout_final(final)
-        projected_final=F.hardswish(self.project_final(final))
-        #projected_final=self.dropout(projected_final.view(B,1,-1)).view(B,-1)
-        if drop_final:
-            projected_final*=0
-        feature_matrix=torch.cat((feature_matrix,projected_final),1)
-        ensemble_logit=self.ensemble_classifier_fc(feature_matrix)
-        ensemble_loss=F.cross_entropy(ensemble_logit,y)
-        return dict(ensemble_loss=ensemble_loss,aux_loss=aux_loss,attention_maps=attention_maps_,ensemble_logit=ensemble_logit,feature_matrix=feature_matrix_,feature_matrix_d=feature_matrix_d)
+#         B,M,N = feature_matrix.size()
+#         if not jump_aux:
+#             aux_loss,feature_matrix_d=self.auxiliary_loss(feature_maps_d,attention_maps_,y)
+#         else:
+#             feature_matrix_d=self.atp(feature_maps_d,attention_maps_)
+#             aux_loss=0
+#         feature_matrix=feature_matrix.view(B,-1)
+#         feature_matrix=F.hardswish(self.projection_local(feature_matrix))
+#         final=layers['final']
+#         attention_maps=attention_maps.sum(dim=1,keepdim=True)
+#         final=self.atp(final,attention_maps,norm=1).squeeze(1)
+#         final=self.dropout_final(final)
+#         projected_final=F.hardswish(self.project_final(final))
+#         #projected_final=self.dropout(projected_final.view(B,1,-1)).view(B,-1)
+#         if drop_final:
+#             projected_final*=0
+#         feature_matrix=torch.cat((feature_matrix,projected_final),1)
+#         ensemble_logit=self.ensemble_classifier_fc(feature_matrix)
+#         ensemble_loss=F.cross_entropy(ensemble_logit,y)
+#         return dict(ensemble_loss=ensemble_loss,aux_loss=aux_loss,attention_maps=attention_maps_,ensemble_logit=ensemble_logit,feature_matrix=feature_matrix_,feature_matrix_d=feature_matrix_d)
 
 
     def forward(self, x,y=0,train_batch=False,AG=None):
@@ -314,7 +314,7 @@ class MAT(nn.Module):
         raw_attentions = layers[self.attention_layer]
         attention_maps=self.attentions(raw_attentions)
         feature_maps = layers[self.feature_layer]
-        feature_maps,feature_maps_d=self.texture_enhance(feature_maps,attention_maps)
+#         feature_maps,feature_maps_d=self.texture_enhance(feature_maps,attention_maps)
         feature_matrix=self.atp(feature_maps,attention_maps)
         B,M,N = feature_matrix.size()
         feature_matrix=self.dropout(feature_matrix)
