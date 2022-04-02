@@ -247,7 +247,7 @@ class MAT(nn.Module):
         self.projection_local=nn.Sequential(nn.Linear(M*num_features,mid_dims),nn.Hardswish(),nn.Linear(mid_dims,mid_dims))
         self.project_final=nn.Linear(layers['final'].shape[1],mid_dims)
         self.ensemble_classifier_fc=nn.Sequential(nn.Linear(mid_dims*2,mid_dims),nn.Hardswish(),nn.Linear(mid_dims,num_classes))
-        self.auxiliary_loss=Auxiliary_Loss_v2(M,self.num_features_d,num_classes,alpha,margin,inner_margin)
+#         self.auxiliary_loss=Auxiliary_Loss_v2(M,self.num_features_d,num_classes,alpha,margin,inner_margin)
         self.dropout=nn.Dropout2d(dropout_rate,inplace=True)
         self.dropout_final=nn.Dropout(drop_final_rate,inplace=True)
         #self.center_loss=Center_Loss(self.num_features*M,num_classes)
